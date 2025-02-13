@@ -1,12 +1,12 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 class Stangen:
-    def __init__(self, p1, p2, color='blue'):
+    def __init__(self, p1, p2):
+        """Erstellt eine Stange zwischen zwei Punkten."""
         self.p1 = p1
         self.p2 = p2
-        self.color = color
-        self.length = np.linalg.norm(p2.position() - p1.position())
+        self.länge = np.linalg.norm(self.punkt2.get_position() - self.punkt1.get_position())
 
-    def draw(self, ax):
-        ax.plot([self.p1.x, self.p2.x], [self.p1.y, self.p2.y], color=self.color, linewidth=2)
+    def get_endpunkte(self):
+        """Gibt die Koordinaten der Endpunkte der Stange zurück."""
+        return self.punkt1.get_position(), self.punkt2.get_position()
