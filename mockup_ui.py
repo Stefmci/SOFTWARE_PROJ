@@ -1,4 +1,7 @@
 import streamlit as st
+import matplotlib.pyplot as plt
+from mechanismus import Mechanism, create_mechanism  # Stelle sicher, dass Mechanism importiert ist
+from plots import MechanismPlotter  # Falls MechanismPlotter in einer separaten Datei ist
 
 def startseite():
     st.title("Simulation ebener Mechanismen")
@@ -50,10 +53,11 @@ def dateneingabe():
 def simulation():
     st.title("Simulation")
     st.write("Hier läuft die Simulation basierend auf den eingegebenen Parametern.")
-    st.header("MIN - Berechnung von 0 - 360°")
-    st.header("MIN - Visualisierung der Bahnkurve")
-    st.progress(50)
-    st.write("Simulation läuft...")
+    placeholder = st.empty()
+    
+    mechanism = create_mechanism()
+    plotter = MechanismPlotter(mechanism)
+    plotter.animate(placeholder)
 
 def analyse():
     st.title("Analyse")
