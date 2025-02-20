@@ -1,65 +1,42 @@
 import os
 from tinydb import TinyDB, Query
 from serializer import serializer
-from classes import Mechanismus
+from classes import Mechanism, Point
 
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.json')
-db = TinyDB(db_path, storage=serializer) 
+db = TinyDB(db_path, storage=serializer)
 
-
-def save_mechanismus(mechanismus: Mechanismus, force=False):
+def save_mechanism(mechanism: Mechanism, force=False):
     mechanisms_table = db.table("mechanisms")
     query = Query()
-    mechanisms_table.upsert(mechanismus.to_dict(), query.id == mechanismus.id)
+    existing = mechanisms_table.get(query.id == mechanism.id)
     if existing and not force:
-        print(f"Mechanismus mit ID '{mechanismus.id}' existiert bereits! Aktualisiere den Eintrag.")
-    mechanisms_table.upsert(mechanismus.to_dict(), query.id == mechanismus.id)
-    print(f"Mechanismus '{mechanismus.id}' wurde gespeichert (aktualisiert)!")
+        raise ValueError("Mechanism already exists! If you want to overwrite it, set force=True.")
+    
+    mechanisms_table.upsert(mechanism.to_dict(), query.id == mechanism.id)
+    print(f"Mechanism '{mechanism.id}' has been saved (updated)!")
 
-
-def load_mechanismus(id: str) -> Mechanismus:
+def load_mechanism(id: str) -> Mechanism:
     mechanisms_table = db.table("mechanisms")
     query = Query()
     result = mechanisms_table.get(query.id == id)
     if result:
-        return Mechanismus.from_dict(result)
+        return Mechanism.from_dict(result)
     else:
-        print(f"Mechanismus mit ID '{id}' nicht gefunden.")
+        print(f"Mechanism with ID '{id}' not found.")
         return None
 
-
-def get_all_mechanismen():
+def get_all_mechanisms():
     mechanisms_table = db.table("mechanisms")
     return [m["id"] for m in mechanisms_table.all()]
 
-
-def delete_mechanismus(id: str):
+def delete_mechanism(id: str):
     mechanisms_table = db.table("mechanisms")
     query = Query()
-    mechanism = load_mechanismus(id)
-    mechanisms_table.remove(query.id == id)
-    print(f"Mechanismus mit ID '{id}' wurde gelöscht.")
-
-
-def update_mechanismus(id: str, neue_punkte=None, neue_stangen=None):
-    mechanismus = load_mechanismus(id)
-    if not mechanismus:
-        print(f"Mechanismus mit ID '{id}' nicht gefunden.")
-        return
-    
-    if neue_punkte:
-        for p in neue_punkte:
-            if p["id"] in mechanismus.punkte:
-                mechanismus.punkte[p["id"]].set_position(p["x"], p["y"])
-            else:
-                mechanismus.add_point(p["id"], p["x"], p["y"], p.get("fixed", False))
-
-    if neue_stangen:
-        for s in neue_stangen:
-            mechanismus.remove_link(s["p1"], s["p2"])
-            mechanismus.add_link(s["p1"], s["p2"])
-
-    save_mechanismus(mechanismus)
-    print(f"Mechanismus '{id}' wurde aktualisiert.")
-
+    mechanism = load_mechanism(id)
+    if mechanism:
+        mechanisms_table.remove(query.id == id)
+        print(f"Mechanism with ID '{id}' has been deleted.")
+    else:
+        print(f"Mechanism with ID '{id}' does not exist.")
 
