@@ -206,7 +206,7 @@ class MechanismVisualization(Mechanism):
     def draw_trace(self, ax):
         if self.trace_path and len(self.trace_path) > 1:
             x_vals, y_vals = zip(*self.trace_path)
-            ax.plot(x_vals, y_vals, color="green", linewidth=2)
+            ax.plot(x_vals, y_vals, color="green", linewidth=1)
 
 
     def plot(self, placeholder=None):
@@ -214,7 +214,7 @@ class MechanismVisualization(Mechanism):
         self.ax.set_xlim(-50, 50)
         self.ax.set_ylim(-20, 50)
         self.ax.set_aspect('equal')
-        self.ax.grid(True)
+        self.ax.grid(False)
         for point in self.points.values():
             point.draw(self.ax)
         for connection in self.connections:

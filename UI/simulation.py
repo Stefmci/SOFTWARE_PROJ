@@ -1,6 +1,5 @@
 import streamlit as st
 import time
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 import queries as qr
@@ -46,11 +45,7 @@ def simulation():
     placeholder = st.empty()
 
     if loaded_mech:
-        trace_point_id = None
-        for p in loaded_mech.points:
-            if p.trace_point:
-                trace_point_id = p.id
-                break
+        trace_point_id = "P4"  # Punkt P4 für die Bahnkurve
 
         plotter = cl.MechanismVisualization(selected_mech, pivot_id="c", rotating_id="A", trace_point_id=trace_point_id)
         plotter.points = {p.id: p for p in loaded_mech.points}
@@ -69,9 +64,22 @@ def simulation():
                     new_vec = np.array([np.cos(angle), np.sin(angle)]) * np.linalg.norm(initial_vec)
                     new_pos = np.array([pivot.x, pivot.y]) + new_vec
                     rotating.set_position(new_pos[0], new_pos[1])
-            
+
             for _ in range(3):
                 plotter.relax_constraints(1)
+
+            # Roten Kreis um Punkt C zeichnen
+            center = plotter.points.get("c")
+            point_A = plotter.points.get("A")
+            if center and point_A:
+                radius = np.linalg.norm(np.array([point_A.x, point_A.y]) - np.array([center.x, center.y]))
+                circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
+                plotter.ax.add_patch(circle)
+
+            # Bahnkurve von Punkt P4 speichern
+            trace_point = plotter.points.get("P4")
+            if trace_point:
+                plotter.trace_path.append((trace_point.x, trace_point.y))
 
             plotter.plot(placeholder)
 
