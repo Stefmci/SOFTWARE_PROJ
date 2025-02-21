@@ -1,94 +1,213 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
+import math
+from typing import List
 
-class Mechanismus:
-    def __init__(self, id: str):
+class Mechanism:
+    def __init__(self, id=None):
         self.id = id
-        self.punkte = {}
-        self.stangen = []
+        self.points: List[Point] = []
+        self.connections: List[Connection] = []
 
-    def add_point(self, name, x, y, fixed=False):
-        self.punkte[name] = Punkt(name, x, y, fixed)
+    def add_point(self, point: "Point"):
+        self.points.append(point)
 
-    def add_link(self, p1_name, p2_name):
-        if p1_name in self.punkte and p2_name in self.punkte:
-            stange = Stange(f"{p1_name}-{p2_name}", self.punkte[p1_name], self.punkte[p2_name])
-            self.stangen.append(stange)
+    def add_connection(self, point1_name, point2_name):
+        p1 = next((p for p in self.points if p.id == point1_name or p.name == point1_name), None)
+        p2 = next((p for p in self.points if p.id == point2_name or p.name == point2_name), None)
+        if p1 and p2:
+            connection = Connection(f"{point1_name}-{point2_name}", p1, p2)
+            self.connections.append(connection)
+        else:
+            print(f"Fehler! Punkte '{point1_name}' und '{point2_name}' nicht gefunden!")
 
     def remove_point(self, name):
-        if name in self.punkte:
-            del self.punkte[name]
+        self.points = [p for p in self.points if p.id != name and p.name != name]
+        self.connections = [c for c in self.connections if c.point1.id != name and c.point2.id != name]
 
-    def remove_link(self, p1_name, p2_name):
-        self.stangen = [s for s in self.stangen if not (s.p1.id == p1_name and s.p2.id == p2_name)]
+    def remove_connection(self, point1_name, point2_name):
+        self.connections = [c for c in self.connections
+                            if not ((c.point1.id == point1_name or c.point1.name == point1_name) and
+                                    (c.point2.id == point2_name or c.point2.name == point2_name))]
 
     def move_point(self, name, x, y):
-        if name in self.punkte:
-            self.punkte[name].set_position(x, y)
+        point = next((p for p in self.points if p.id == name or p.name == name), None)
+        if point:
+            point.set_position(x, y)
         else:
-            print(f"Punkt '{name}' existiert nicht!")
+            print(f"Punkt '{name}' nicht gefunden!")
+
+    def relax_constraints(self, iterations=10):
+        for _ in range(iterations):
+            for v in self.connections:
+                p1 = v.point1
+                p2 = v.point2
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
+                d = math.sqrt(dx * dx + dy * dy)
+                diff = d - v.rest_length
+                nx = dx / d
+                ny = dy / d
+                factor = 0.8
+                if (not p1.fixed and p1.name != "A") and (not p2.fixed and p2.name != "A"):
+                    p1.x += factor * diff * nx
+                    p1.y += factor * diff * ny
+                    p2.x -= factor * diff * nx
+                    p2.y -= factor * diff * ny
+                elif not p1.fixed and p1.name != "A":
+                    p1.x += diff * nx
+                    p1.y += diff * ny
+                elif not p2.fixed and p2.name != "A":
+                    p2.x -= diff * nx
+                    p2.y -= diff * ny
+
+    def erstelle_matrix(self):
+        m = len(self.connections)
+        n = len(self.points)
+        A = np.zeros((2 * m, 2 * n))
+        for i, v in enumerate(self.connections):
+            p1_index = v.point1.id
+            p2_index = v.point2.id
+            A[2 * i, 2 * p1_index] = 1
+            A[2 * i, 2 * p2_index] = -1
+            A[2 * i + 1, 2 * p1_index + 1] = 1
+            A[2 * i + 1, 2 * p2_index + 1] = -1
+        return A
+
+    def berechne_freiheitsgrad(self):
+        n = len(self.points)
+        m = len(self.connections)
+        return 3 * (n - 1) - 2 * m
 
     def to_dict(self):
         return {
             "id": self.id,
-            "punkte": [{"id": p.id, "x": p.x, "y": p.y, "fixed": p.fix} for p in self.punkte.values()],
-            "stangen": [{"id": s.id, "p1": s.p1.id, "p2": s.p2.id, "leange": s.leange} for s in self.stangen]
+            "points": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "x": p.x,
+                    "y": p.y,
+                    "fixed": p.fixed,
+                    "color": p.color,
+                    "trace_point": p.trace_point
+                }
+                for p in self.points
+            ],
+            "connections": [
+                {"id": c.id, "point1": c.point1.id, "point2": c.point2.id, "length": c.length}
+                for c in self.connections
+            ]
         }
+
 
     @classmethod
     def from_dict(cls, data):
-        mechanismus = cls(data["id"])
-        for p in data["punkte"]:
-            mechanismus.add_point(p["id"], p["x"], p["y"], p["fixed"])
-        for s in data["stangen"]:
-            mechanismus.add_link(s["p1"], s["p2"])
-        return mechanismus
+        mech = cls(data.get("id"))
+        for p in data["points"]:
+            point = Point(
+                p["id"],
+                p.get("name", p["id"]),
+                p["x"],
+                p["y"],
+                p["fixed"],
+                p.get("color", None),
+                p.get("rot_point", None),
+                p.get("rot_angle", 0),
+                p.get("trace_point", False)
+            )
+            mech.add_point(point)
+        for c in data["connections"]:
+            mech.add_connection(c["point1"], c["point2"])
+        return mech
 
-class Punkt:
-    def __init__(self, id: str, x: float, y: float, fix: bool = False):
+
+class Point:
+    def __init__(self, id: str, name: str, x: float, y: float, fixed: bool = False, color=None, rot_point: "Point" = None, rot_angle=0, trace_point=False):
         self.id = id
-        self.x = x
-        self.y = y
-        self.fix = fix
+        self.name = name
+        self.fixed = fixed
+        self.trace_point = trace_point
+        self.color = color if color is not None else ('blue' if fixed else 'red')
+        if rot_point is not None:
+            dx = x - rot_point.x
+            dy = y - rot_point.y
+            rad = math.radians(rot_angle)
+            self.x = rot_point.x + dx * math.cos(rad) - dy * math.sin(rad)
+            self.y = rot_point.y + dx * math.sin(rad) + dy * math.cos(rad)
+        else:
+            self.x = x
+            self.y = y
 
     def get_position(self):
         return np.array([self.x, self.y])
 
     def set_position(self, x: float, y: float):
-        if not self.fix:
+        if not self.fixed:
             self.x = x
             self.y = y
 
-    def __str__(self):
-        return f"Punkt(id={self.id}, x={self.x}, y={self.y}, fix={self.fix})"
+    def draw(self, ax, color=None):
+        col = color if color is not None else self.color
+        ax.scatter(self.x, self.y, color=col, s=50)
+        ax.text(self.x + 0.5, self.y + 0.5, self.name, fontsize=12)
 
-class Stange:
-    def __init__(self, id: str, p1: Punkt, p2: Punkt):
+    def __str__(self):
+        return f"Punkt(id={self.id}, name={self.name}, x={self.x}, y={self.y}, fixed={self.fixed})"
+
+    def __repr__(self):
+        return self.__str__()
+
+class Connection:
+    def __init__(self, id: str, point1: Point, point2: Point):
         self.id = id
-        self.p1 = p1
-        self.p2 = p2
-        self.leange = np.linalg.norm(self.p2.get_position() - self.p1.get_position())
+        self.point1 = point1
+        self.point2 = point2
+        self.length = np.linalg.norm(self.point2.get_position() - self.point1.get_position())
+        self.rest_length = self.distance()
 
-    def get_endpunkte(self):
-        return self.p1.get_position(), self.p2.get_position()
+    def get_endpoints(self):
+        return self.point1.get_position(), self.point2.get_position()
+    
+    def distance(self):
+        dx = self.point2.x - self.point1.x
+        dy = self.point2.y - self.point1.y
+        return math.sqrt(dx * dx + dy * dy)
+
+    def draw(self, ax, color='blue'):
+        ax.plot([self.point1.x, self.point2.x], [self.point1.y, self.point2.y], color=color)
 
     def __str__(self):
-        return f"Stange(id={self.id}, leange={self.leange:.2f}, p1={self.p1.id}, p2={self.p2.id})"
+        return f"Verbindung(id={self.id}, length={self.length:.2f}, point1={self.point1.id}, point2={self.point2.id})"
 
-class MechanismusVisualisierung(Mechanismus):
-    def __init__(self, id: str, pivot_id="P1", rotating_id="P2"):
+    def __repr__(self):
+        return self.__str__()
+
+class MechanismVisualization(Mechanism):
+    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_id=None):
         super().__init__(id)
         self.fig, self.ax = plt.subplots()
         self.pivot_id = pivot_id
         self.rotating_id = rotating_id
         self.initial_positions = {}
+        self.trace_point_id = trace_point_id  
+        self.trace_path = []
 
     def store_initial_positions(self):
         self.initial_positions = {}
-        for pid, point in self.punkte.items():
-            if not point.fix:
-                self.initial_positions[pid] = np.array([point.x, point.y])
+        pts = self.points.values() if isinstance(self.points, dict) else self.points
+        for point in pts:
+            if not point.fixed:
+                self.initial_positions[point.id] = np.array([point.x, point.y])
+        if self.trace_point_id is not None:
+            self.trace_path = []
+            
+    def draw_trace(self, ax):
+        if self.trace_path and len(self.trace_path) > 1:
+            x_vals, y_vals = zip(*self.trace_path)
+            ax.plot(x_vals, y_vals, color="green", linewidth=2)
+
 
     def plot(self, placeholder=None):
         self.ax.clear()
@@ -96,11 +215,26 @@ class MechanismusVisualisierung(Mechanismus):
         self.ax.set_ylim(-20, 50)
         self.ax.set_aspect('equal')
         self.ax.grid(True)
-        for name, point in self.punkte.items():
-            self.ax.scatter(point.x, point.y, color='red')
-            self.ax.text(point.x + 0.5, point.y + 0.5, name, fontsize=12)
-        for s in self.stangen:
-            self.ax.plot([s.p1.x, s.p2.x], [s.p1.y, s.p2.y], color="blue")
+        for point in self.points.values():
+            point.draw(self.ax)
+        for connection in self.connections:
+            self.ax.plot([connection.point1.x, connection.point2.x],
+                         [connection.point1.y, connection.point2.y],
+                         color="blue")
+        center = None
+        point_A = None
+        for point in self.points.values():
+            if point.id == "c" or point.name == "c":
+                center = point
+            elif point.id == "A" or point.name == "A":
+                point_A = point
+        if center and point_A:
+            radius = np.linalg.norm(np.array([point_A.x, point_A.y]) - np.array([center.x, center.y]))
+            circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
+            self.ax.add_patch(circle)
+        
+        self.draw_trace(self.ax)
+        
         if placeholder:
             placeholder.pyplot(self.fig)
         else:
@@ -108,17 +242,21 @@ class MechanismusVisualisierung(Mechanismus):
 
     def update(self, frame, placeholder):
         angle = np.radians(frame % 360)
-        pivot = self.punkte.get(self.pivot_id)
+        pts = self.points.values() if isinstance(self.points, dict) else self.points
+        pivot = next((p for p in pts if p.id == self.pivot_id or p.name == self.pivot_id), None)
         if pivot is None:
             self.plot(placeholder)
             return
-        for pid, point in self.punkte.items():
-            if not point.fix and pid in self.initial_positions:
-                initial_vec = self.initial_positions[pid] - np.array([pivot.x, pivot.y])
-                rot_matrix = np.array([[np.cos(angle), -np.sin(angle)],
-                                       [np.sin(angle),  np.cos(angle)]])
-                new_vec = rot_matrix.dot(initial_vec)
-                new_pos = np.array([pivot.x, pivot.y]) + new_vec
-                point.set_position(new_pos[0], new_pos[1])
-        self.plot(placeholder)
+
+        rotating = next((p for p in pts if p.id == self.rotating_id or p.name == self.rotating_id), None)
+        if rotating and rotating.id in self.initial_positions:
+            initial_vec = self.initial_positions[rotating.id] - np.array([pivot.x, pivot.y])
+            new_vec = np.array([np.cos(angle), np.sin(angle)]) * np.linalg.norm(initial_vec)
+            new_pos = np.array([pivot.x, pivot.y]) + new_vec
+            rotating.set_position(new_pos[0], new_pos[1])
+            if self.trace_point_id is not None and rotating.id == self.trace_point_id:
+                self.trace_path.append((rotating.x, rotating.y))
+
+        self.relax_constraints(1)
         
+        self.plot(placeholder)
