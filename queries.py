@@ -16,6 +16,8 @@ def save_mechanism(mechanism: Mechanism, force=False):
     mechanisms_table.upsert(mechanism.to_dict(), query.id == mechanism.id)
     print(f"Mechanism '{mechanism.id}' has been saved (updated)!")
 
+    return True #Hier musste ich (Ahmet) True zurückgeben für den Tracepunkt
+
 def load_mechanism(id: str) -> Mechanism:
     mechanisms_table = db.table("mechanisms")
     query = Query()
@@ -45,12 +47,17 @@ def save_trace(mechanism_id: str, point_id: str):
     if mech is None:
         print(f"Mechanismus '{mechanism_id}' nicht gefunden!")
         return
-    
+
+    # Den gewählten Punkt als Trace-Punkt setzen
     for point in mech.points:
         if point.id == point_id or point.name == point_id:
             point.trace_point = True
             print(f"Trace-Punkt für '{point_id}' gesetzt.")
-            save_mechanism(mech, force=True)
+
+            save_mechanism(mech, force=True)  # Daten speichern
+            print("Mechanismus erfolgreich gespeichert!")  # <== Debugging
             return
+
+
 
 

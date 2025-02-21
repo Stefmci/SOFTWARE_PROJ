@@ -45,7 +45,9 @@ def simulation():
     placeholder = st.empty()
 
     if loaded_mech:
-        trace_point_id = "P4"  # Punkt P4 für die Bahnkurve
+
+        trace_point_id = next((p.id for p in points_list if p.trace_point), None)
+
 
         plotter = cl.MechanismVisualization(selected_mech, pivot_id="c", rotating_id="A", trace_point_id=trace_point_id)
         plotter.points = {p.id: p for p in loaded_mech.points}
@@ -76,8 +78,7 @@ def simulation():
                 circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
                 plotter.ax.add_patch(circle)
 
-            # Bahnkurve von Punkt P4 speichern
-            trace_point = plotter.points.get("P4")
+            trace_point = plotter.points.get(trace_point_id)
             if trace_point:
                 plotter.trace_path.append((trace_point.x, trace_point.y))
 
