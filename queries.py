@@ -40,3 +40,17 @@ def delete_mechanism(id: str):
     else:
         print(f"Mechanism with ID '{id}' does not exist.")
 
+def save_trace(mechanism_id: str, point_id: str):
+    mech = load_mechanism(mechanism_id)
+    if mech is None:
+        print(f"Mechanismus '{mechanism_id}' nicht gefunden!")
+        return
+    
+    for point in mech.points:
+        if point.id == point_id or point.name == point_id:
+            point.trace_point = True
+            print(f"Trace-Punkt für '{point_id}' gesetzt.")
+            save_mechanism(mech, force=True)
+            return
+
+

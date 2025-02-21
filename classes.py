@@ -37,7 +37,7 @@ class Mechanism:
             point.set_position(x, y)
         else:
             print(f"Punkt '{name}' nicht gefunden!")
-            
+
     def relax_constraints(self, iterations=10):
         for _ in range(iterations):
             for v in self.connections:
@@ -49,7 +49,7 @@ class Mechanism:
                 diff = d - v.rest_length
                 nx = dx / d
                 ny = dy / d
-                factor = 0.2
+                factor = 0.8
                 if (not p1.fixed and p1.name != "A") and (not p2.fixed and p2.name != "A"):
                     p1.x += factor * diff * nx
                     p1.y += factor * diff * ny
@@ -61,7 +61,7 @@ class Mechanism:
                 elif not p2.fixed and p2.name != "A":
                     p2.x -= diff * nx
                     p2.y -= diff * ny
-                    
+
     def erstelle_matrix(self):
         m = len(self.connections)
         n = len(self.points)
@@ -83,25 +83,52 @@ class Mechanism:
     def to_dict(self):
         return {
             "id": self.id,
-            "points": [{"id": p.id, "name": p.name, "x": p.x, "y": p.y, "fixed": p.fixed, "color": p.color} for p in self.points],
-            "connections": [{"id": c.id, "point1": c.point1.id, "point2": c.point2.id, "length": c.length} for c in self.connections]
+            "points": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "x": p.x,
+                    "y": p.y,
+                    "fixed": p.fixed,
+                    "color": p.color,
+                    "trace_point": p.trace_point
+                }
+                for p in self.points
+            ],
+            "connections": [
+                {"id": c.id, "point1": c.point1.id, "point2": c.point2.id, "length": c.length}
+                for c in self.connections
+            ]
         }
+
 
     @classmethod
     def from_dict(cls, data):
         mech = cls(data.get("id"))
         for p in data["points"]:
-            point = Point(p["id"], p.get("name", p["id"]), p["x"], p["y"], p["fixed"], p.get("color", None))
+            point = Point(
+                p["id"],
+                p.get("name", p["id"]),
+                p["x"],
+                p["y"],
+                p["fixed"],
+                p.get("color", None),
+                p.get("rot_point", None),
+                p.get("rot_angle", 0),
+                p.get("trace_point", False)
+            )
             mech.add_point(point)
         for c in data["connections"]:
             mech.add_connection(c["point1"], c["point2"])
         return mech
 
+
 class Point:
-    def __init__(self, id: str, name: str, x: float, y: float, fixed: bool = False, color=None, rot_point: "Point" = None, rot_angle=0):
+    def __init__(self, id: str, name: str, x: float, y: float, fixed: bool = False, color=None, rot_point: "Point" = None, rot_angle=0, trace_point=False):
         self.id = id
         self.name = name
         self.fixed = fixed
+        self.trace_point = trace_point
         self.color = color if color is not None else ('blue' if fixed else 'red')
         if rot_point is not None:
             dx = x - rot_point.x
@@ -158,12 +185,14 @@ class Connection:
         return self.__str__()
 
 class MechanismVisualization(Mechanism):
-    def __init__(self, id: str, pivot_id="P1", rotating_id="P2"):
+    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_id=None):
         super().__init__(id)
         self.fig, self.ax = plt.subplots()
         self.pivot_id = pivot_id
         self.rotating_id = rotating_id
         self.initial_positions = {}
+        self.trace_point_id = trace_point_id  
+        self.trace_path = []
 
     def store_initial_positions(self):
         self.initial_positions = {}
@@ -171,6 +200,14 @@ class MechanismVisualization(Mechanism):
         for point in pts:
             if not point.fixed:
                 self.initial_positions[point.id] = np.array([point.x, point.y])
+        if self.trace_point_id is not None:
+            self.trace_path = []
+            
+    def draw_trace(self, ax):
+        if self.trace_path and len(self.trace_path) > 1:
+            x_vals, y_vals = zip(*self.trace_path)
+            ax.plot(x_vals, y_vals, color="green", linewidth=2)
+
 
     def plot(self, placeholder=None):
         self.ax.clear()
@@ -195,6 +232,9 @@ class MechanismVisualization(Mechanism):
             radius = np.linalg.norm(np.array([point_A.x, point_A.y]) - np.array([center.x, center.y]))
             circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
             self.ax.add_patch(circle)
+        
+        self.draw_trace(self.ax)
+        
         if placeholder:
             placeholder.pyplot(self.fig)
         else:
@@ -207,16 +247,16 @@ class MechanismVisualization(Mechanism):
         if pivot is None:
             self.plot(placeholder)
             return
-        for p in pts:
-            if not p.fixed and p.id in self.initial_positions:
-                initial_vec = self.initial_positions[p.id] - np.array([pivot.x, pivot.y])
-                rot_matrix = np.array([[np.cos(angle), -np.sin(angle)],
-                                    [np.sin(angle),  np.cos(angle)]])
-                new_vec = rot_matrix.dot(initial_vec)
-                new_pos = np.array([pivot.x, pivot.y]) + new_vec
-                p.set_position(new_pos[0], new_pos[1])
-        self.plot(placeholder)
+
+        rotating = next((p for p in pts if p.id == self.rotating_id or p.name == self.rotating_id), None)
+        if rotating and rotating.id in self.initial_positions:
+            initial_vec = self.initial_positions[rotating.id] - np.array([pivot.x, pivot.y])
+            new_vec = np.array([np.cos(angle), np.sin(angle)]) * np.linalg.norm(initial_vec)
+            new_pos = np.array([pivot.x, pivot.y]) + new_vec
+            rotating.set_position(new_pos[0], new_pos[1])
+            if self.trace_point_id is not None and rotating.id == self.trace_point_id:
+                self.trace_path.append((rotating.x, rotating.y))
+
+        self.relax_constraints(1)
         
-
-
-
+        self.plot(placeholder)

@@ -29,7 +29,7 @@ def mechanismus_verwaltung():
                     st.warning(f"Existiert bereits!")
                 else:
                     new_mechanism = cl.Mechanism(mechanism_id)
-                    point_c = cl.Point("c", "c", -30, 0, True, "red")
+                    point_c = cl.Point("c", "c", -30, 0, True, "blue")
                     point_A = cl.Point("A", "A", -20, 10, False, "blue")
                     connection = cl.Connection("c-A", point_c, point_A)
                     new_mechanism.add_point(point_c)
@@ -185,10 +185,18 @@ def mechanismus_verwaltung():
 
 
 ########################################################## Steuerung
+
+
+    if selected_mechanism_id != "Keine Mechanismen vorhanden":
+        loaded_mech = qr.load_mechanism(selected_mechanism_id)
+        points_list = loaded_mech.points
+    else:
+        loaded_mech = None
+        points_list = []
                     
     st.divider()
 
-    col0, col1, col2, col3 = st.columns([2, 2, 2, 2])
+    col0, col1, col2, col3, col4 = st.columns([2, 2, 2, 2, 2])
     with col0:
         if st.button("Punkt hinzufügen"):
             st.session_state["points"].append((f"P{len(st.session_state['points']) + 1}", 0.0, 0.0, False))
@@ -227,6 +235,13 @@ def mechanismus_verwaltung():
                 mechanism.add_connection(p1, p2)
             qr.save_mechanism(mechanism, force=True)
             st.success("saved!")
+            
+    with col4:
+        if points_list:
+            selected_point = st.selectbox("Wähle einen Punkt für die Bahnkurve", [p.name for p in mechanism.points])
+        if st.button("Trace-Punkt setzen"):
+            qr.save_trace(mechanism_id=mechanism.id, point_id=selected_point)
+            st.success(f"Trace-Punkt für '{selected_point}' gesetzt.")
 
 ########################################################## Visualisierung
 
