@@ -1,6 +1,7 @@
 import streamlit as st
 import classes as cl
 import queries as qr
+from classes import MechanismVisualization
 
 def mechanismus_verwaltung():
     
@@ -237,11 +238,63 @@ def mechanismus_verwaltung():
             st.success("saved!")
             
     with col4:
-        if points_list:
-            selected_point = st.selectbox("Wähle einen Punkt für die Bahnkurve", [p.name for p in mechanism.points])
-        if st.button("Trace-Punkt setzen"):
-            qr.save_trace(mechanism_id=mechanism.id, point_id=selected_point)
-            st.success(f"Trace-Punkt für '{selected_point}' gesetzt.")
+        if mechanism.points:
+            selected_point_name = st.selectbox(
+                "Wähle einen Punkt für die Bahnkurve",
+                [p.name for p in mechanism.points]
+            )
+
+            visualization = None
+
+            if st.button("Trace-Punkt setzen"):
+                selected_point = next((p for p in mechanism.points if p.name == selected_point_name), None)
+
+                if selected_point:
+                    # Setze nur diesen Punkt als Trace-Punkt, alle anderen auf False
+                    for point in mechanism.points:
+                        point.trace_point = False
+                    selected_point.trace_point = True  
+
+                    # Debugging: Vor dem Speichern
+                    print("Vor dem Speichern:", [(p.name, p.trace_point) for p in mechanism.points])
+
+                    success = qr.save_mechanism(mechanism, force=True)
+
+                    # Debugging: Nach dem Speichern
+                    print("Nach dem Speichern:", [(p.name, p.trace_point) for p in mechanism.points])
+
+                    if success:
+                        if "visualization" not in st.session_state:
+                            st.session_state.visualization = MechanismVisualization(mechanism.id)
+
+                        st.session_state.visualization.trace_point_id = selected_point.id
+                        st.success(f"Trace-Punkt für '{selected_point_name}' gesetzt.")
+                    else:
+                        st.error("Fehler beim Speichern des Mechanismus!")
+
+                else:
+                    st.error("Fehler: Punkt nicht gefunden!")
+
+        if st.button("Trace-Punkt löschen"):
+            for point in mechanism.points:
+                point.trace_point = False
+
+            # Debugging: Vor dem Speichern
+            print("Vor dem Löschen:", [(p.name, p.trace_point) for p in mechanism.points])
+
+            success = qr.save_mechanism(mechanism, force=True)
+
+            # Debugging: Nach dem Speichern
+            print("Nach dem Löschen:", [(p.name, p.trace_point) for p in mechanism.points])
+
+            if success:
+                if hasattr(st.session_state, "visualization") and st.session_state.visualization:
+                    st.session_state.visualization.trace_point_id = None
+
+                st.success("Trace-Punkt wurde gelöscht.")
+            else:
+                st.error("Fehler beim Löschen des Trace-Punkts!")
+
 
 ########################################################## Visualisierung
 

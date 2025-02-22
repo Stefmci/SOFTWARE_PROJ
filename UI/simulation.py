@@ -45,16 +45,20 @@ def simulation():
     placeholder = st.empty()
 
     if loaded_mech:
-        trace_point_id = "P4"  # Punkt P4 für die Bahnkurve
+
+        trace_point_id = next((p.id for p in points_list if p.trace_point), None)
+
 
         plotter = cl.MechanismVisualization(selected_mech, pivot_id="c", rotating_id="A", trace_point_id=trace_point_id)
         plotter.points = {p.id: p for p in loaded_mech.points}
         plotter.connections = loaded_mech.connections
         plotter.store_initial_positions()
 
-        frame = 0
+
+        start_time = time.perf_counter()
+        frame = 270
         while st.session_state.animation_status == 'running':
-            angle = np.radians(frame % 360)
+            angle = np.radians(frame)
             pts = plotter.points.values() if isinstance(plotter.points, dict) else plotter.points
             pivot = next((p for p in pts if p.id == plotter.pivot_id or p.name == plotter.pivot_id), None)
             if pivot:
@@ -76,15 +80,19 @@ def simulation():
                 circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
                 plotter.ax.add_patch(circle)
 
-            # Bahnkurve von Punkt P4 speichern
-            trace_point = plotter.points.get("P4")
+            trace_point = plotter.points.get(trace_point_id)
             if trace_point:
                 plotter.trace_path.append((trace_point.x, trace_point.y))
 
             plotter.plot(placeholder)
 
-            frame = (frame + 2) % 360
-            time.sleep(0.005)
+
+            #frame = (frame + 1) % 360
+            #time.sleep(0.005)
+            elapsed = time.perf_counter() - start_time
+            frame = 270 + elapsed * 20
+
+            #st.rerun()
 
             if st.session_state.animation_status != 'running':
                 break

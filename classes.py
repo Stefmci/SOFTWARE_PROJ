@@ -185,9 +185,9 @@ class Connection:
         return self.__str__()
 
 class MechanismVisualization(Mechanism):
-    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_id=None):
+    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_id=True):
         super().__init__(id)
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.ax = plt.subplots(figsize=(8, 8))  # Größeres Fenster
         self.pivot_id = pivot_id
         self.rotating_id = rotating_id
         self.initial_positions = {}
@@ -208,21 +208,22 @@ class MechanismVisualization(Mechanism):
             x_vals, y_vals = zip(*self.trace_path)
             ax.plot(x_vals, y_vals, color="green", linewidth=1)
 
-
     def plot(self, placeholder=None):
         self.ax.clear()
-        self.ax.set_xlim(-50, 50)
-        self.ax.set_ylim(-20, 50)
         self.ax.set_aspect('equal')
-        self.ax.grid(False)
+        self.ax.grid(True, linestyle='--', linewidth=0.5)
+        
+        # Punkte und Verbindungen plotten
         for point in self.points.values():
             point.draw(self.ax)
         for connection in self.connections:
             self.ax.plot([connection.point1.x, connection.point2.x],
                          [connection.point1.y, connection.point2.y],
                          color="blue")
-        center = None
-        point_A = None
+        
+        
+        # Kreis um Punkt C
+        center, point_A = None, None
         for point in self.points.values():
             if point.id == "c" or point.name == "c":
                 center = point
@@ -234,6 +235,10 @@ class MechanismVisualization(Mechanism):
             self.ax.add_patch(circle)
         
         self.draw_trace(self.ax)
+        
+        # Skalierung kleiner machen
+        self.ax.set_xlim(-150, 150)
+        self.ax.set_ylim(-150, 150)
         
         if placeholder:
             placeholder.pyplot(self.fig)
@@ -254,8 +259,16 @@ class MechanismVisualization(Mechanism):
             new_vec = np.array([np.cos(angle), np.sin(angle)]) * np.linalg.norm(initial_vec)
             new_pos = np.array([pivot.x, pivot.y]) + new_vec
             rotating.set_position(new_pos[0], new_pos[1])
-            if self.trace_point_id is not None and rotating.id == self.trace_point_id:
-                self.trace_path.append((rotating.x, rotating.y))
+
+
+            if self.trace_point_id is not None:
+                trace_point = next((p for p in pts if p.id == self.trace_point_id), None)
+
+                if trace_point:
+                    print(f"Trace-Punkt gefunden: {trace_point.id} - Position: ({trace_point.x}, {trace_point.y})")
+                    self.trace_path.append((trace_point.x, trace_point.y))
+                else:
+                    print("FEHLER: Trace-Punkt wurde nicht gefunden!")
 
         self.relax_constraints(1)
         
