@@ -54,9 +54,11 @@ def simulation():
         plotter.connections = loaded_mech.connections
         plotter.store_initial_positions()
 
-        frame = 0
+
+        start_time = time.perf_counter()
+        frame = 270
         while st.session_state.animation_status == 'running':
-            angle = np.radians(frame % 360)
+            angle = np.radians(frame)
             pts = plotter.points.values() if isinstance(plotter.points, dict) else plotter.points
             pivot = next((p for p in pts if p.id == plotter.pivot_id or p.name == plotter.pivot_id), None)
             if pivot:
@@ -84,8 +86,13 @@ def simulation():
 
             plotter.plot(placeholder)
 
-            frame = (frame + 2) % 360
-            time.sleep(0.005)
+
+            #frame = (frame + 1) % 360
+            #time.sleep(0.005)
+            elapsed = time.perf_counter() - start_time
+            frame = 270 + elapsed * 20
+
+            #st.rerun()
 
             if st.session_state.animation_status != 'running':
                 break
