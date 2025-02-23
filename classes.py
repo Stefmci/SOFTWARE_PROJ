@@ -185,28 +185,31 @@ class Connection:
         return self.__str__()
 
 class MechanismVisualization(Mechanism):
-    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_id=True):
+    def __init__(self, id: str, pivot_id="P1", rotating_id="P2", trace_point_ids=None):
         super().__init__(id)
         self.fig, self.ax = plt.subplots(figsize=(8, 8))  # Größeres Fenster
         self.pivot_id = pivot_id
         self.rotating_id = rotating_id
         self.initial_positions = {}
-        self.trace_point_id = trace_point_id  
-        self.trace_path = []
+        self.trace_point_ids = trace_point_ids if trace_point_ids else []  # Liste von Trace-Punkten
+        self.trace_paths = {tp_id: [] for tp_id in self.trace_point_ids}  # Dictionary für mehrere Spuren
+
 
     def store_initial_positions(self):
         self.initial_positions = {}
-        pts = self.points.values() if isinstance(self.points, dict) else self.points
-        for point in pts:
+        for point in self.points.values():
             if not point.fixed:
                 self.initial_positions[point.id] = np.array([point.x, point.y])
-        if self.trace_point_id is not None:
-            self.trace_path = []
+        
+        # Spuren für alle Trace-Punkte initialisieren
+        self.trace_paths = {tp_id: [] for tp_id in self.trace_point_ids}
             
     def draw_trace(self, ax):
-        if self.trace_path and len(self.trace_path) > 1:
-            x_vals, y_vals = zip(*self.trace_path)
-            ax.plot(x_vals, y_vals, color="green", linewidth=1)
+        """ Zeichnet die Spuren für alle gespeicherten Trace-Punkte """
+        for tp_id, path in self.trace_paths.items():
+            if path and len(path) > 1:
+                x_vals, y_vals = zip(*path)
+                ax.plot(x_vals, y_vals, color = "green", label=f"Trace {tp_id}")
 
     def plot(self, placeholder=None):
         self.ax.clear()
@@ -247,29 +250,23 @@ class MechanismVisualization(Mechanism):
 
     def update(self, frame, placeholder):
         angle = np.radians(frame % 360)
-        pts = self.points.values() if isinstance(self.points, dict) else self.points
-        pivot = next((p for p in pts if p.id == self.pivot_id or p.name == self.pivot_id), None)
-        if pivot is None:
+        pivot = next((p for p in self.points if p.id == self.pivot_id), None)
+        if not pivot:
             self.plot(placeholder)
             return
 
-        rotating = next((p for p in pts if p.id == self.rotating_id or p.name == self.rotating_id), None)
+        rotating = next((p for p in self.points if p.id == self.rotating_id), None)
         if rotating and rotating.id in self.initial_positions:
             initial_vec = self.initial_positions[rotating.id] - np.array([pivot.x, pivot.y])
             new_vec = np.array([np.cos(angle), np.sin(angle)]) * np.linalg.norm(initial_vec)
             new_pos = np.array([pivot.x, pivot.y]) + new_vec
             rotating.set_position(new_pos[0], new_pos[1])
 
-
-            if self.trace_point_id is not None:
-                trace_point = next((p for p in pts if p.id == self.trace_point_id), None)
-
+            # Spur für alle gespeicherten Trace-Punkte aktualisieren
+            for tp_id in self.trace_point_ids:
+                trace_point = next((p for p in self.points if p.id == tp_id), None)
                 if trace_point:
-                    print(f"Trace-Punkt gefunden: {trace_point.id} - Position: ({trace_point.x}, {trace_point.y})")
-                    self.trace_path.append((trace_point.x, trace_point.y))
-                else:
-                    print("FEHLER: Trace-Punkt wurde nicht gefunden!")
+                    self.trace_paths[tp_id].append((trace_point.x, trace_point.y))
 
         self.relax_constraints(1)
-        
         self.plot(placeholder)

@@ -251,8 +251,7 @@ def mechanismus_verwaltung():
 
                 if selected_point:
                     # Setze nur diesen Punkt als Trace-Punkt, alle anderen auf False
-                    for point in mechanism.points:
-                        point.trace_point = False
+                    
                     selected_point.trace_point = True  
 
                     # Debugging: Vor dem Speichern
@@ -267,7 +266,9 @@ def mechanismus_verwaltung():
                         if "visualization" not in st.session_state:
                             st.session_state.visualization = MechanismVisualization(mechanism.id)
 
-                        st.session_state.visualization.trace_point_id = selected_point.id
+                        st.session_state.visualization.trace_point_id = [selected_point.id]
+                        st.session_state.visualization.trace_paths = {selected_point.id: []}
+
                         st.success(f"Trace-Punkt für '{selected_point_name}' gesetzt.")
                     else:
                         st.error("Fehler beim Speichern des Mechanismus!")
@@ -289,7 +290,8 @@ def mechanismus_verwaltung():
 
             if success:
                 if hasattr(st.session_state, "visualization") and st.session_state.visualization:
-                    st.session_state.visualization.trace_point_id = None
+                    st.session_state.visualization.trace_point_ids = []
+                    st.session_state.visualization.trace_paths = {}
 
                 st.success("Trace-Punkt wurde gelöscht.")
             else:

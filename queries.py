@@ -2,6 +2,7 @@ import os
 from tinydb import TinyDB, Query
 from serializer import serializer
 from classes import Mechanism, Point
+from typing import List
 
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.json')
 db = TinyDB(db_path, storage=serializer)
@@ -42,21 +43,21 @@ def delete_mechanism(id: str):
     else:
         print(f"Mechanism with ID '{id}' does not exist.")
 
-def save_trace(mechanism_id: str, point_id: str):
+def save_trace(mechanism_id: str, point_ids: List[str]):
     mech = load_mechanism(mechanism_id)
     if mech is None:
         print(f"Mechanismus '{mechanism_id}' nicht gefunden!")
         return
 
-    # Den gewählten Punkt als Trace-Punkt setzen
-    for point in mech.points:
-        if point.id == point_id or point.name == point_id:
+    for point_id in point_ids:
+        point = next((p for p in mech.points if p.id == point_id), None)
+        if point:
             point.trace_point = True
             print(f"Trace-Punkt für '{point_id}' gesetzt.")
 
-            save_mechanism(mech, force=True)  # Daten speichern
-            print("Mechanismus erfolgreich gespeichert!")  # <== Debugging
-            return
+    save_mechanism(mech, force=True)
+    print("Mechanismus mit neuen Trace-Punkten gespeichert!")
+
 
 
 

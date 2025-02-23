@@ -10,6 +10,7 @@ def simulation():
     st.write("Matrix darstellen noch einbauen")
     st.divider()
 
+    # Mechanismus auswählen
     mech_list = qr.get_all_mechanisms()
     selected_mech = st.selectbox("Wähle einen Mechanismus:", mech_list if mech_list else ["Keine Mechanismen vorhanden"])
 
@@ -20,11 +21,12 @@ def simulation():
         loaded_mech = None
         points_list = []
 
+    # Animation Status verwalten
     if 'animation_status' not in st.session_state:
         st.session_state.animation_status = 'stopped'
 
     col1, col2, col3 = st.columns(3)
-
+    
     with col1:
         if st.button("Stop"):
             st.session_state.animation_status = 'paused'
@@ -46,20 +48,22 @@ def simulation():
 
     if loaded_mech:
 
-        trace_point_id = next((p.id for p in points_list if p.trace_point), None)
+        # Alle Punkte mit `trace_point = True` finden
+        trace_point_ids = [p.id for p in points_list if p.trace_point]
 
-
-        plotter = cl.MechanismVisualization(selected_mech, pivot_id="c", rotating_id="A", trace_point_id=trace_point_id)
+        # Mechanismus-Visualisierung initialisieren
+        plotter = cl.MechanismVisualization(selected_mech, pivot_id="c", rotating_id="A", trace_point_ids=trace_point_ids)
         plotter.points = {p.id: p for p in loaded_mech.points}
         plotter.connections = loaded_mech.connections
         plotter.store_initial_positions()
-
 
         start_time = time.perf_counter()
         frame = 270
         while st.session_state.animation_status == 'running':
             angle = np.radians(frame)
             pts = plotter.points.values() if isinstance(plotter.points, dict) else plotter.points
+
+            # Drehpunkt (C) und rotierender Punkt (A)
             pivot = next((p for p in pts if p.id == plotter.pivot_id or p.name == plotter.pivot_id), None)
             if pivot:
                 rotating = next((p for p in pts if p.id == plotter.rotating_id or p.name == plotter.rotating_id), None)
@@ -69,6 +73,7 @@ def simulation():
                     new_pos = np.array([pivot.x, pivot.y]) + new_vec
                     rotating.set_position(new_pos[0], new_pos[1])
 
+            # Constraints lösen
             for _ in range(3):
                 plotter.relax_constraints(1)
 
@@ -80,20 +85,23 @@ def simulation():
                 circle = plt.Circle((center.x, center.y), radius, color="red", fill=False)
                 plotter.ax.add_patch(circle)
 
-            trace_point = plotter.points.get(trace_point_id)
-            if trace_point:
-                plotter.trace_path.append((trace_point.x, trace_point.y))
+            # Mehrere Tracepunkte speichern
+            for trace_id in trace_point_ids:
+                trace_point = plotter.points.get(trace_id)
+                if trace_point:
+                    plotter.trace_paths[trace_id].append((trace_point.x, trace_point.y))
+
 
             plotter.plot(placeholder)
 
+            frame = (frame + 2) % 360
+            time.sleep(0.0005)
 
-            #frame = (frame + 1) % 360
-            #time.sleep(0.005)
-            elapsed = time.perf_counter() - start_time
-            frame = 270 + elapsed * 20
+            # Frame berechnen
+            #elapsed = time.perf_counter() - start_time
+            #frame = 270 + elapsed * 20
 
-            #st.rerun()
-
+            # Animation stoppen oder pausieren
             if st.session_state.animation_status != 'running':
                 break
 
