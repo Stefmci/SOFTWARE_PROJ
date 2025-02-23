@@ -254,13 +254,7 @@ def mechanismus_verwaltung():
                     
                     selected_point.trace_point = True  
 
-                    # Debugging: Vor dem Speichern
-                    print("Vor dem Speichern:", [(p.name, p.trace_point) for p in mechanism.points])
-
                     success = qr.save_mechanism(mechanism, force=True)
-
-                    # Debugging: Nach dem Speichern
-                    print("Nach dem Speichern:", [(p.name, p.trace_point) for p in mechanism.points])
 
                     if success:
                         if "visualization" not in st.session_state:
