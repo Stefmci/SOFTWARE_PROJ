@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import math
 from typing import List
+from scipy.optimize import least_squares
 
 class Mechanism:
     def __init__(self, id=None):
@@ -79,6 +80,28 @@ class Mechanism:
         n = len(self.points)
         m = len(self.connections)
         return 3 * (n - 1) - 2 * m
+    
+    def berechne_längenvektor(self):
+        l_vector = []
+        for v in self.connections:
+            dx = v.point2.x - v.point1.x
+            dy = v.point2.y - v.point1.y
+            l_vector.append(math.sqrt(dx**2 + dy**2))
+        return np.array(l_vector)
+    
+    def berechne_fehler(self):
+        l = self.berechne_längenvektor()
+        self.transform_point_rotation("P2", math.radians(10))
+        l_prime = self.berechne_längenvektor()
+        return l_prime - l
+
+    def fehler_minimieren(self):
+        def fehlerfunktion(theta):
+            self.transform_point_rotation("P2", theta)
+            return self.berechne_fehler()
+        res = least_squares(fehlerfunktion, x0=[math.radians(10)])
+        return res.x
+
 
     def to_dict(self):
         return {

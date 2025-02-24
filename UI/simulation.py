@@ -57,8 +57,11 @@ def simulation():
         plotter.connections = loaded_mech.connections
         plotter.store_initial_positions()
 
-        start_time = time.perf_counter()
+        #start_time = time.perf_counter()
         frame = 270
+
+        completed_turn = False
+
         while st.session_state.animation_status == 'running':
             angle = np.radians(frame)
             pts = plotter.points.values() if isinstance(plotter.points, dict) else plotter.points
@@ -86,10 +89,11 @@ def simulation():
                 plotter.ax.add_patch(circle)
 
             # Mehrere Tracepunkte speichern
-            for trace_id in trace_point_ids:
-                trace_point = plotter.points.get(trace_id)
-                if trace_point:
-                    plotter.trace_paths[trace_id].append((trace_point.x, trace_point.y))
+            if not completed_turn:
+                for trace_id in trace_point_ids:
+                    trace_point = plotter.points.get(trace_id)
+                    if trace_point:
+                        plotter.trace_paths[trace_id].append((trace_point.x, trace_point.y))
 
 
             plotter.plot(placeholder)
